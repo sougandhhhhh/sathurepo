@@ -134,14 +134,14 @@ export function PDFSettings({ settings, expanded, onToggle, onChange }: PDFSetti
 
 function getQualityForPreset(preset: PdfSettings["compressionPreset"]) {
   if (preset === "smallest") return 60;
-  if (preset === "best") return 95;
+  if (preset === "best") return 100;
   if (preset === "balanced") return 85;
   return 85;
 }
 
 function getPresetForQuality(quality: number): PdfSettings["compressionPreset"] {
   if (quality <= 65) return "smallest";
-  if (quality >= 92) return "best";
+  if (quality >= 98) return "best";
   if (quality === 85) return "balanced";
   return "custom";
 }

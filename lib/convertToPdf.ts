@@ -113,7 +113,7 @@ function getPageDims(
 async function processFile(file: File, quality: number, name: string, index: number, total: number) {
   const dataUrl = await fileToDataUrl(file);
   const image = await loadImage(dataUrl);
-  const MAX = 2400;
+  const MAX = 4096;
   let { naturalWidth: width, naturalHeight: height } = image;
 
   if (width > MAX || height > MAX) {
@@ -191,4 +191,3 @@ function yieldToBrowser() {
     window.setTimeout(resolve, 0);
   });
 }
-

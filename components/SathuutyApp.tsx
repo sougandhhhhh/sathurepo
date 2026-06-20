@@ -26,13 +26,15 @@ import type { ConversionProgress, ImageItem, PdfSettings, ProcessedPreview } fro
 const DEFAULT_SETTINGS: PdfSettings = {
   pageSize: "a4",
   orientation: "portrait",
-  quality: 85,
+  quality: 100,
   margin: 12,
   filename: "sathuuty-memories.pdf",
-  watermark: false,
-  pageNumbers: false,
-  compressionPreset: "balanced",
+  watermark: true,
+  pageNumbers: true,
+  compressionPreset: "best",
 };
+
+const MAX_UPLOADS = 400;
 
 export function SathuutyApp() {
   const [images, setImages] = useState<ImageItem[]>([]);
@@ -88,10 +90,14 @@ export function SathuutyApp() {
       isHeic: isHeicFile(file),
     }));
 
-    const nextImages = [...images, ...mapped];
-    setImages(nextImages);
+    setImages((current) => {
+      const remainingSlots = Math.max(MAX_UPLOADS - current.length, 0);
+      const accepted = mapped.slice(0, remainingSlots);
+      const nextImages = [...current, ...accepted];
+      setWarning(buildUploadWarning(nextImages, mapped.length - accepted.length));
+      return nextImages;
+    });
     setError(null);
-    setWarning(buildUploadWarning(nextImages));
   };
 
   const handleRemove = (id: string) => {
@@ -226,7 +232,7 @@ export function SathuutyApp() {
             transition={{ delay: 0.22, duration: 0.55 }}
             className="mt-6 font-dancing text-2xl text-[var(--accent-blush)] sm:text-3xl"
           >
-            turn memories into pages ?
+            turn memories into pages
           </motion.p>
 
           <motion.p
@@ -343,10 +349,22 @@ export function SathuutyApp() {
   );
 }
 
-function buildUploadWarning(items: ImageItem[]) {
+function buildUploadWarning(items: ImageItem[], rejectedCount = 0) {
   const total = items.length;
   const hasHeic = items.some((item) => item.isHeic);
   const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+
+  if (total >= MAX_UPLOADS) {
+    if (rejectedCount > 0) {
+      return `Upload cap reached at ${MAX_UPLOADS} images. ${rejectedCount} additional file${rejectedCount === 1 ? "" : "s"} were skipped.`;
+    }
+
+    return `Upload cap reached at ${MAX_UPLOADS} images.`;
+  }
+
+  if (rejectedCount > 0) {
+    return `Only ${rejectedCount} file${rejectedCount === 1 ? "" : "s"} were skipped to respect the ${MAX_UPLOADS}-image cap.`;
+  }
 
   if (total > 300 && hasHeic && isMobile) {
     return "Large HEIC batch detected on mobile. A desktop browser will handle this much better.";
