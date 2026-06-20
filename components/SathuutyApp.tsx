@@ -207,7 +207,7 @@ export function SathuutyApp() {
     <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(232,99,122,0.18),_transparent_38%),radial-gradient(circle_at_bottom_right,_rgba(212,165,116,0.12),_transparent_28%),linear-gradient(180deg,_#120b10_0%,_#0f0a0e_45%,_#0b070a_100%)]">
       <HeartParticles />
 
-      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-28 pt-8 sm:px-6 lg:px-8">
+      <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 pb-0 pt-8 sm:px-6 lg:px-8">
         <section className="flex min-h-[72vh] flex-col items-center justify-center text-center">
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 18 }}
@@ -322,19 +322,19 @@ export function SathuutyApp() {
           ) : null}
         </section>
 
-        <footer className="mt-16 overflow-hidden rounded-[2rem] border border-white/10 bg-[var(--bg-surface)]/95 shadow-[0_-18px_60px_rgba(0,0,0,0.25)]">
+        <footer className="relative left-1/2 mt-16 w-screen -translate-x-1/2 overflow-hidden border-y border-white/10 bg-[var(--bg-surface)]/95 shadow-[0_-18px_60px_rgba(0,0,0,0.25)]">
           <div className="h-px w-full bg-gradient-to-r from-transparent via-[#e8637a66] to-transparent" />
-          <div className="flex flex-col items-center justify-between gap-5 px-6 py-8 text-center sm:flex-row sm:text-left sm:px-8">
+          <div className="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-5 px-6 py-8 text-center sm:flex-row sm:text-left sm:px-8">
             <div className="flex items-center gap-3">
-              <Image src="/icon.svg" alt="Welcome, Sathu logo" width={44} height={44} className="h-11 w-11 rounded-2xl border border-white/10 bg-white/5 p-1.5" />
+              <Image src="/icon.svg" alt="SathukuttyntePDF logo" width={44} height={44} className="h-11 w-11 rounded-2xl border border-white/10 bg-white/5 p-1.5" />
               <div>
-                <p className="font-playfair text-2xl italic text-[var(--text-primary)]">Welcome, Sathu</p>
+                <p className="font-playfair text-2xl italic text-[var(--text-primary)]">SathukuttyntePDF</p>
                 <p className="font-playfair text-base italic text-[var(--accent-blush)]">all rights reserved only for my vaavu &lt;3</p>
               </div>
             </div>
 
             <p className="font-playfair text-2xl italic text-[var(--text-primary)]">
-              with love, you kannan
+              with love, your kannan.
             </p>
           </div>
         </footer>

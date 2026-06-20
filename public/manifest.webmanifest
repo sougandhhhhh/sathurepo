@@ -1,6 +1,6 @@
 {
-  "name": "Welcome, Sathu",
-  "short_name": "Welcome, Sathu",
+  "name": "SathukuttyntePDF",
+  "short_name": "SathukuttyntePDF",
   "description": "Convert images to a single beautiful PDF in the browser.",
   "start_url": "/",
   "scope": "/",
