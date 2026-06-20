@@ -79,7 +79,7 @@ export function SathuutyApp() {
       id: crypto.randomUUID(),
       file,
       name: file.name,
-      url: fileToObjectUrl(file),
+      url: isHeicFile(file) ? "" : fileToObjectUrl(file),
       isHeic: isHeicFile(file),
     }));
 
@@ -91,6 +91,23 @@ export function SathuutyApp() {
       return nextImages;
     });
     setError(null);
+
+    const heicItems = mapped.filter((item) => item.isHeic);
+    if (heicItems.length > 0) {
+      import("heic2any").then(({ default: heic2any }) => {
+        heicItems.forEach((item) => {
+          heic2any({ blob: item.file, toType: "image/jpeg", quality: 0.1 })
+            .then((converted) => {
+              const blob = Array.isArray(converted) ? converted[0] : converted;
+              const objectUrl = URL.createObjectURL(blob);
+              setImages((current) =>
+                current.map((img) => (img.id === item.id ? { ...img, url: objectUrl } : img))
+              );
+            })
+            .catch((e) => console.error("Failed to generate HEIC preview:", e));
+        });
+      }).catch(e => console.error("Failed to import heic2any:", e));
+    }
   };
 
   const handleRemove = (id: string) => {

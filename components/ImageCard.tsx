@@ -26,8 +26,14 @@ export function ImageCard({ item, index, onRemove, isLocked, onLockClick }: Imag
         isLocked ? "z-20 shadow-[0_0_40px_rgba(232,99,122,0.32)] ring-1 ring-[#e8637a88]" : "",
       ].join(" ")}
     >
-      <div className="relative aspect-square">
-        <Image src={item.url} alt={item.name} fill unoptimized className="object-cover" />
+      <div className="relative aspect-square bg-white/5">
+        {item.url ? (
+          <Image src={item.url} alt={item.name} fill unoptimized className="object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-white/50">
+            <span className="text-xs animate-pulse">Loading preview...</span>
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-black/10 opacity-0 transition group-hover:opacity-100" />
 
         <div className="absolute inset-0 flex items-start justify-between p-3 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
