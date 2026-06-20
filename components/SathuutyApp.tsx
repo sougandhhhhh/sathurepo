@@ -76,7 +76,7 @@ export function SathuutyApp() {
   }, []);
 
   const fileCountLabel = useMemo(() => {
-    if (images.length === 0) return "No memories loaded yet";
+    if (images.length === 0) return "No images loaded yet";
     return `${images.length} image${images.length === 1 ? "" : "s"} ready`;
   }, [images.length]);
 
@@ -216,8 +216,8 @@ export function SathuutyApp() {
             className="relative"
           >
             <div className="absolute inset-0 -z-10 rounded-full bg-[radial-gradient(circle,_rgba(232,99,122,0.35),_transparent_68%)] blur-3xl" />
-            <h1 className="font-playfair text-6xl italic leading-none tracking-tight sm:text-7xl lg:text-[88px]">
-              <span className="bg-gradient-to-r from-[#e8637a] via-[#f4a7b5] to-[#d4a574] bg-clip-text text-transparent">
+            <h1 className="font-playfair text-6xl italic leading-[1.08] tracking-tight sm:text-7xl lg:text-[88px]">
+              <span className="inline-block bg-gradient-to-r from-[#e8637a] via-[#f4a7b5] to-[#d4a574] bg-clip-text pb-1 pr-2 text-transparent">
                 Welcome, Sathu
               </span>
             </h1>
@@ -322,18 +322,19 @@ export function SathuutyApp() {
           ) : null}
         </section>
 
-        <footer className="mt-16 border-t border-white/8 pt-8 pb-6">
-          <div className="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
+        <footer className="mt-16 overflow-hidden rounded-[2rem] border border-white/10 bg-[var(--bg-surface)]/95 shadow-[0_-18px_60px_rgba(0,0,0,0.25)]">
+          <div className="h-px w-full bg-gradient-to-r from-transparent via-[#e8637a66] to-transparent" />
+          <div className="flex flex-col items-center justify-between gap-5 px-6 py-8 text-center sm:flex-row sm:text-left sm:px-8">
             <div className="flex items-center gap-3">
-              <Image src="/icon.svg" alt="Welcome, Sathu logo" width={40} height={40} className="h-10 w-10 rounded-2xl border border-white/10 bg-white/5 p-1.5" />
+              <Image src="/icon.svg" alt="Welcome, Sathu logo" width={44} height={44} className="h-11 w-11 rounded-2xl border border-white/10 bg-white/5 p-1.5" />
               <div>
-                <p className="font-playfair text-lg italic text-[var(--text-primary)]">Welcome, Sathu</p>
-                <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">site name</p>
+                <p className="font-playfair text-2xl italic text-[var(--text-primary)]">Welcome, Sathu</p>
+                <p className="font-playfair text-base italic text-[var(--accent-blush)]">all rights reserved only for my vaavu &lt;3</p>
               </div>
             </div>
 
-            <p className="text-sm text-[var(--text-muted)]">
-              with love, kannan. all rights reserved.
+            <p className="font-playfair text-2xl italic text-[var(--text-primary)]">
+              with love, you kannan
             </p>
           </div>
         </footer>
