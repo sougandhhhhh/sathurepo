@@ -2,36 +2,28 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, X } from "lucide-react";
+import { Lock, Unlock, X } from "lucide-react";
 import type { ImageItem } from "@/lib/types";
 
 interface ImageCardProps {
   item: ImageItem;
   index: number;
   onRemove: (id: string) => void;
+  isLocked: boolean;
+  onLockClick: (id: string) => void;
 }
 
-export function ImageCard({ item, index, onRemove }: ImageCardProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  };
+export function ImageCard({ item, index, onRemove, isLocked, onLockClick }: ImageCardProps) {
 
   return (
     <motion.article
-      ref={setNodeRef}
-      style={style}
       layout
       initial={{ opacity: 0, y: 18, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       className={[
         "group relative overflow-hidden rounded-2xl border border-white/8 bg-[var(--bg-surface)] shadow-[0_16px_40px_rgba(0,0,0,0.24)]",
-        isDragging ? "z-20 shadow-[0_0_40px_rgba(232,99,122,0.32)] ring-1 ring-[#e8637a88]" : "",
+        isLocked ? "z-20 shadow-[0_0_40px_rgba(232,99,122,0.32)] ring-1 ring-[#e8637a88]" : "",
       ].join(" ")}
     >
       <div className="relative aspect-square">
@@ -49,14 +41,18 @@ export function ImageCard({ item, index, onRemove }: ImageCardProps) {
           </button>
         </div>
 
-        <div
-          {...attributes}
-          {...listeners}
-          className="absolute left-1/2 top-1/2 inline-flex h-[4.5rem] w-[4.5rem] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur transition hover:scale-105 hover:bg-black/60 touch-none cursor-grab active:cursor-grabbing sm:h-[5rem] sm:w-[5rem]"
-          aria-label={`Drag ${item.name}`}
+        <button
+          type="button"
+          onClick={() => onLockClick(item.id)}
+          className={`absolute left-1/2 top-1/2 inline-flex h-[4.5rem] w-[4.5rem] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur transition hover:scale-105 sm:h-[5rem] sm:w-[5rem] ${isLocked ? 'bg-[#e8637a]/80 text-white' : 'bg-black/40 text-white hover:bg-black/60'}`}
+          aria-label={isLocked ? `Unlock ${item.name}` : `Lock ${item.name}`}
         >
-          <GripVertical className="h-7 w-7 sm:h-8 sm:w-8 text-white/90" />
-        </div>
+          {isLocked ? (
+            <Lock className="h-7 w-7 sm:h-8 sm:w-8 text-white" />
+          ) : (
+            <Unlock className="h-7 w-7 sm:h-8 sm:w-8 text-white/90" />
+          )}
+        </button>
 
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-2.5 pt-5 flex items-center justify-between gap-1.5">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">

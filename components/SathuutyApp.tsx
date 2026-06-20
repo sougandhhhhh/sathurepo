@@ -3,17 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import {
-  DndContext,
-  DragEndEvent,
-  MouseSensor,
-  TouchSensor,
-  KeyboardSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
-import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { ChevronDown, ImageIcon, AlertTriangle } from "lucide-react";
 import { HeartParticles } from "@/components/HeartParticles";
 import { DropZone } from "@/components/DropZone";
@@ -60,11 +49,7 @@ export function SathuutyApp() {
   const imagesRef = useRef<ImageItem[]>([]);
   const pdfUrlRef = useRef<string | null>(null);
 
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 40, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  const [lockedImageId, setLockedImageId] = useState<string | null>(null);
 
   useEffect(() => {
     imagesRef.current = images;
@@ -138,15 +123,28 @@ export function SathuutyApp() {
     setImages((current) => [...current].reverse());
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
+  const handleImageLockClick = (clickedId: string) => {
+    if (lockedImageId === null) {
+      setLockedImageId(clickedId);
+    } else if (lockedImageId === clickedId) {
+      setLockedImageId(null);
+    } else {
+      setImages((current) => {
+        const lockedIndex = current.findIndex((item) => item.id === lockedImageId);
+        const clickedIndex = current.findIndex((item) => item.id === clickedId);
 
-    setImages((current) => {
-      const oldIndex = current.findIndex((item) => item.id === active.id);
-      const newIndex = current.findIndex((item) => item.id === over.id);
-      return arrayMove(current, oldIndex, newIndex);
-    });
+        if (lockedIndex === -1 || clickedIndex === -1) return current;
+
+        const next = [...current];
+        const [lockedItem] = next.splice(lockedIndex, 1);
+        
+        const insertIndex = next.findIndex((item) => item.id === clickedId);
+        next.splice(insertIndex, 0, lockedItem);
+        
+        return next;
+      });
+      setLockedImageId(null);
+    }
   };
 
   const handleConvert = async () => {
@@ -303,9 +301,7 @@ export function SathuutyApp() {
                 ) : null}
               </div>
 
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <ImageGrid items={images} onRemove={handleRemove} />
-              </DndContext>
+              <ImageGrid items={images} onRemove={handleRemove} lockedImageId={lockedImageId} onLockClick={handleImageLockClick} />
 
               <PDFSettings
                 settings={settings}
