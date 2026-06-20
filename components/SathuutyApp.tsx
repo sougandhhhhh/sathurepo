@@ -6,12 +6,14 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   DndContext,
   DragEndEvent,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
+  KeyboardSensor,
   closestCenter,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { arrayMove } from "@dnd-kit/sortable";
+import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { ChevronDown, ImageIcon, AlertTriangle } from "lucide-react";
 import { HeartParticles } from "@/components/HeartParticles";
 import { DropZone } from "@/components/DropZone";
@@ -58,7 +60,11 @@ export function SathuutyApp() {
   const imagesRef = useRef<ImageItem[]>([]);
   const pdfUrlRef = useRef<string | null>(null);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 40, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   useEffect(() => {
     imagesRef.current = images;
@@ -130,10 +136,6 @@ export function SathuutyApp() {
 
   const handleReverse = () => {
     setImages((current) => [...current].reverse());
-  };
-
-  const handleManualOrder = () => {
-    setWarning("Use the drag handle on each image card to place photos in your preferred order.");
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -283,9 +285,6 @@ export function SathuutyApp() {
                   </button>
                   <button onClick={handleReverse} className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-[var(--text-muted)] transition hover:border-[var(--accent-rose)] hover:text-[var(--text-primary)]">
                     Reverse order
-                  </button>
-                  <button onClick={handleManualOrder} className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-[var(--text-muted)] transition hover:border-[var(--accent-rose)] hover:text-[var(--text-primary)]">
-                    Manual order
                   </button>
                   <button
                     onClick={() => setClearConfirmOpen(true)}

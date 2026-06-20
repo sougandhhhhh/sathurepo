@@ -38,43 +38,42 @@ export function ImageCard({ item, index, onRemove }: ImageCardProps) {
         <Image src={item.url} alt={item.name} fill unoptimized className="object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-black/10 opacity-0 transition group-hover:opacity-100" />
 
-        <div className="absolute inset-0 flex items-start justify-between p-3 opacity-0 transition group-hover:opacity-100">
-          <button
-            type="button"
-            {...attributes}
-            {...listeners}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/90 backdrop-blur"
-            aria-label={`Drag ${item.name}`}
-          >
-            <GripVertical className="h-4 w-4" />
-          </button>
+        <div className="absolute inset-0 flex items-start justify-between p-3 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
           <button
             type="button"
             onClick={() => onRemove(item.id)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#e8637a55] bg-[#e8637a22] text-[var(--accent-rose)] backdrop-blur transition hover:bg-[#e8637a33]"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/90 backdrop-blur"
             aria-label={`Remove ${item.name}`}
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-3">
-          <span className="rounded-full bg-[#e8637a] px-2.5 py-1 text-[11px] font-semibold tracking-[0.2em] text-white">
-            {String(index + 1).padStart(2, "0")}
-          </span>
-          <div className="max-w-[70%] rounded-full bg-black/55 px-3 py-1 text-[11px] text-white/85 opacity-0 backdrop-blur transition group-hover:opacity-100">
-            {item.name}
+        <div
+          {...attributes}
+          {...listeners}
+          className="absolute left-1/2 top-1/2 inline-flex h-[4.5rem] w-[4.5rem] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 bg-black/40 text-white shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur transition hover:scale-105 hover:bg-black/60 touch-none cursor-grab active:cursor-grabbing sm:h-[5rem] sm:w-[5rem]"
+          aria-label={`Drag ${item.name}`}
+        >
+          <GripVertical className="h-7 w-7 sm:h-8 sm:w-8 text-white/90" />
+        </div>
+
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-2.5 pt-5 flex items-center justify-between gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0 flex-1">
+            <span className="rounded bg-white/15 px-1.5 py-0.5 text-[9px] font-semibold tracking-[0.05em] text-white/70 select-none">
+              {String(index + 1).padStart(2, "0")}
+            </span>
+            <span className="text-[10px] text-white/95 truncate font-normal tracking-wide" title={item.name}>
+              {item.name}
+            </span>
           </div>
-          {item.isHeic ? (
-            <span className="rounded-full bg-[#d4a574] px-2.5 py-1 text-[10px] font-semibold tracking-[0.2em] text-[#221620]">
+          {item.isHeic && (
+            <span className="rounded bg-[#d4a574]/20 border border-[#d4a574]/30 px-1.5 py-0.5 text-[9px] font-bold tracking-[0.05em] text-[#d4a574] shrink-0">
               HEIC
             </span>
-          ) : (
-            <span />
           )}
         </div>
       </div>
     </motion.article>
   );
 }
-
