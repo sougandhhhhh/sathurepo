@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+:root {
+  --bg-primary: #0f0a0e;
+  --bg-surface: #1a1118;
+  --bg-elevated: #221620;
+  --accent-rose: #e8637a;
+  --accent-blush: #f4a7b5;
+  --accent-gold: #d4a574;
+  --accent-violet: #9b7dbd;
+  --text-primary: #fdf0f3;
+  --text-muted: #a08090;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
+  --font-sans: var(--font-inter);
+  --font-serif: var(--font-playfair);
+  --font-mono: var(--font-inter);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(232, 99, 122, 0.13), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(212, 165, 116, 0.08), transparent 26%),
+    linear-gradient(180deg, #120b10 0%, #0f0a0e 46%, #0b070a 100%);
+  color: var(--text-primary);
+  font-family: var(--font-inter), sans-serif;
+}
+
+::selection {
+  background: rgba(232, 99, 122, 0.35);
+  color: var(--text-primary);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #e8637a, #d4a574);
+  border-radius: 999px;
+}
+
+.font-playfair {
+  font-family: var(--font-playfair), serif;
+}
+
+.font-dancing {
+  font-family: var(--font-dancing), cursive;
+}
+
+.shimmer-text {
+  background: linear-gradient(90deg, #e8637a, #d4a574, #f4a7b5, #d4a574, #e8637a);
+  background-size: 240% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 3.2s linear infinite;
+}
+
+.btn-rose {
+  background: linear-gradient(135deg, #e8637a, #c84d6b);
+  box-shadow: 0 14px 42px rgba(232, 99, 122, 0.22);
+}
+
+.btn-rose:hover {
+  box-shadow: 0 0 32px rgba(232, 99, 122, 0.5), 0 0 64px rgba(232, 99, 122, 0.2);
+}
+
+@keyframes shimmer {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
