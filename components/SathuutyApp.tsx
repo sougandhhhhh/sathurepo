@@ -50,6 +50,7 @@ export function SathuutyApp() {
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [successOpen, setSuccessOpen] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [stats, setStats] = useState({ pages: 0, bytes: 0, seconds: 0 });
   const [processedPreviews, setProcessedPreviews] = useState<ProcessedPreview[]>([]);
@@ -129,6 +130,10 @@ export function SathuutyApp() {
 
   const handleReverse = () => {
     setImages((current) => [...current].reverse());
+  };
+
+  const handleManualOrder = () => {
+    setWarning("Use the drag handle on each image card to place photos in your preferred order.");
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -279,8 +284,14 @@ export function SathuutyApp() {
                   <button onClick={handleReverse} className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-[var(--text-muted)] transition hover:border-[var(--accent-rose)] hover:text-[var(--text-primary)]">
                     Reverse order
                   </button>
-                  <button onClick={handleClearAll} className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-[var(--text-muted)] transition hover:border-[var(--accent-rose)] hover:text-[var(--text-primary)]">
-                    Clear all
+                  <button onClick={handleManualOrder} className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-[var(--text-muted)] transition hover:border-[var(--accent-rose)] hover:text-[var(--text-primary)]">
+                    Manual order
+                  </button>
+                  <button
+                    onClick={() => setClearConfirmOpen(true)}
+                    className="rounded-full border border-rose-400/40 bg-rose-400/10 px-3 py-1.5 text-xs font-semibold text-rose-100 transition hover:bg-rose-400/20 hover:border-rose-300/60"
+                  >
+                    Clear all images
                   </button>
                   <span className="ml-auto text-xs text-[var(--text-muted)]">{images.length} images</span>
                 </div>
@@ -359,6 +370,18 @@ export function SathuutyApp() {
           />
         ) : null}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {clearConfirmOpen ? (
+          <ClearConfirmModal
+            onCancel={() => setClearConfirmOpen(false)}
+            onConfirm={() => {
+              setClearConfirmOpen(false);
+              handleClearAll();
+            }}
+          />
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }
@@ -393,5 +416,51 @@ function buildUploadWarning(items: ImageItem[], rejectedCount = 0) {
   }
 
   return null;
+}
+
+function ClearConfirmModal({
+  onCancel,
+  onConfirm,
+}: {
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 px-4 backdrop-blur-sm"
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 12, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 12, scale: 0.98 }}
+        className="w-full max-w-md rounded-[2rem] border border-white/10 bg-[var(--bg-elevated)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.4)]"
+      >
+        <h3 className="font-playfair text-3xl italic text-[var(--text-primary)]">Clear all images?</h3>
+        <p className="mt-3 text-sm leading-6 text-[var(--text-muted)]">
+          This will remove every uploaded photo from the queue. You can add them again, but this action cannot be undone.
+        </p>
+
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 rounded-full border border-white/10 bg-white/5 px-4 py-3 text-sm text-[var(--text-primary)] transition hover:border-[var(--accent-rose)]"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="flex-1 rounded-full border border-rose-400/40 bg-rose-400/15 px-4 py-3 text-sm font-semibold text-rose-100 transition hover:bg-rose-400/25"
+          >
+            Clear all images
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
 }
 
