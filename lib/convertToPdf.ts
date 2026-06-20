@@ -81,7 +81,7 @@ export async function convertImagesToPDF(
       if (settings.watermark) {
         pdf.setFontSize(12);
         pdf.setTextColor(212, 165, 116);
-        pdf.text("Made with Sathuuty", marginMm, pdfH - 6);
+        pdf.text("Made with Welcome, Sathu", marginMm, pdfH - 6);
       }
     }
 

@@ -2,7 +2,7 @@
   <rect width="1200" height="630" fill="#0F0A0E"/>
   <circle cx="600" cy="315" r="240" fill="url(#g1)" fill-opacity="0.35"/>
   <circle cx="930" cy="160" r="170" fill="url(#g2)" fill-opacity="0.18"/>
-  <text x="600" y="265" text-anchor="middle" fill="#FDF0F3" font-size="92" font-family="Georgia, serif" font-style="italic">Sathuuty</text>
+  <text x="600" y="265" text-anchor="middle" fill="#FDF0F3" font-size="92" font-family="Georgia, serif" font-style="italic">Welcome, Sathu</text>
   <text x="600" y="350" text-anchor="middle" fill="#F4A7B5" font-size="34" font-family="Arial, sans-serif">turn memories into pages</text>
   <text x="600" y="410" text-anchor="middle" fill="#A08090" font-size="22" font-family="Arial, sans-serif">browser-only image to PDF • private • beautiful</text>
   <defs>

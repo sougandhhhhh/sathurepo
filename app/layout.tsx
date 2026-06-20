@@ -19,7 +19,7 @@ const dancing = Dancing_Script({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://sathuuty.vercel.app"),
-  title: "sathukuttyntepdf",
+  title: "Welcome, Sathu",
   description: "Convert hundreds of photos into a single beautiful PDF. Free, private, browser-only.",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -27,7 +27,7 @@ export const metadata: Metadata = {
     apple: "/icon.svg",
   },
   openGraph: {
-    title: "sathukuttyntepdf",
+    title: "Welcome, Sathu",
     description: "Turn your memories into pages.",
     images: ["/og-image.svg"],
   },

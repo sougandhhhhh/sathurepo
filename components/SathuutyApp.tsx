@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   DndContext,
@@ -11,7 +12,7 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
-import { ChevronDown, Sparkles, ImageIcon, AlertTriangle } from "lucide-react";
+import { ChevronDown, ImageIcon, AlertTriangle } from "lucide-react";
 import { HeartParticles } from "@/components/HeartParticles";
 import { DropZone } from "@/components/DropZone";
 import { ImageGrid } from "@/components/ImageGrid";
@@ -28,9 +29,9 @@ const DEFAULT_SETTINGS: PdfSettings = {
   orientation: "portrait",
   quality: 100,
   margin: 12,
-  filename: "sathuuty-memories.pdf",
-  watermark: true,
-  pageNumbers: true,
+  filename: "welcome-sathu.pdf",
+  watermark: false,
+  pageNumbers: false,
   compressionPreset: "best",
 };
 
@@ -215,13 +216,9 @@ export function SathuutyApp() {
             className="relative"
           >
             <div className="absolute inset-0 -z-10 rounded-full bg-[radial-gradient(circle,_rgba(232,99,122,0.35),_transparent_68%)] blur-3xl" />
-            <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-[11px] uppercase tracking-[0.38em] text-[var(--text-muted)] backdrop-blur">
-              <Sparkles className="h-3.5 w-3.5 text-[var(--accent-blush)]" />
-              browser-only image to pdf
-            </p>
             <h1 className="font-playfair text-6xl italic leading-none tracking-tight sm:text-7xl lg:text-[88px]">
               <span className="bg-gradient-to-r from-[#e8637a] via-[#f4a7b5] to-[#d4a574] bg-clip-text text-transparent">
-                Sathuuty
+                Welcome, Sathu
               </span>
             </h1>
           </motion.div>
@@ -324,6 +321,22 @@ export function SathuutyApp() {
             </>
           ) : null}
         </section>
+
+        <footer className="mt-16 border-t border-white/8 pt-8 pb-6">
+          <div className="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
+            <div className="flex items-center gap-3">
+              <Image src="/icon.svg" alt="Welcome, Sathu logo" width={40} height={40} className="h-10 w-10 rounded-2xl border border-white/10 bg-white/5 p-1.5" />
+              <div>
+                <p className="font-playfair text-lg italic text-[var(--text-primary)]">Welcome, Sathu</p>
+                <p className="text-xs uppercase tracking-[0.3em] text-[var(--text-muted)]">site name</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-[var(--text-muted)]">
+              with love, kannan. all rights reserved.
+            </p>
+          </div>
+        </footer>
       </main>
 
       <AnimatePresence>

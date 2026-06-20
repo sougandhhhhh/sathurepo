@@ -58,7 +58,7 @@ export function SuccessModal({ blobUrl, fileName, pages, bytes, seconds, onClose
     const file = new File([blob], fileName, { type: "application/pdf" });
 
     await navigator.share({
-      title: "Sathuuty PDF",
+      title: "Welcome, Sathu PDF",
       text: "Your memories are ready.",
       files: [file],
     });
@@ -92,7 +92,7 @@ export function SuccessModal({ blobUrl, fileName, pages, bytes, seconds, onClose
           </div>
 
           <h2 className="mt-6 bg-gradient-to-r from-[#e8637a] via-[#f4a7b5] to-[#d4a574] bg-clip-text font-playfair text-4xl italic leading-tight text-transparent sm:text-5xl">
-            Your memories are ready, <span className="shimmer-text">Sathuuty</span> ✧
+            Your memories are ready, <span className="shimmer-text">Welcome, Sathu</span> ✧
           </h2>
 
           <p className="mt-4 text-sm text-[var(--text-muted)]">
@@ -157,4 +157,3 @@ function CheckHeart() {
     </svg>
   );
 }
-
