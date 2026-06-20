@@ -1,6 +1,6 @@
 {
-  "name": "Sathuuty",
-  "short_name": "Sathuuty",
+  "name": "sathukuttyntepdf",
+  "short_name": "sathukuttyntepdf",
   "description": "Convert images to a single beautiful PDF in the browser.",
   "start_url": "/",
   "scope": "/",
@@ -15,4 +15,3 @@
     }
   ]
 }
-
