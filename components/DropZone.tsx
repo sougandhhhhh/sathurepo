@@ -57,7 +57,7 @@ export function DropZone({ onFiles, fileCount, warning }: DropZoneProps) {
             </div>
 
             <h2 className="font-playfair text-3xl italic text-[var(--text-primary)] sm:text-4xl">
-              {isDragActive ? "Drop them here" : "Drop your memories here"}
+              {isDragActive ? "Drop images here" : "Drop/upload images"}
             </h2>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-[var(--text-muted)]">
               or click to browse · HEIC, JPG, PNG, WEBP, BMP and GIF supported

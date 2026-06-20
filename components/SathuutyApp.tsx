@@ -229,7 +229,7 @@ export function SathuutyApp() {
             transition={{ delay: 0.22, duration: 0.55 }}
             className="mt-6 font-dancing text-2xl text-[var(--accent-blush)] sm:text-3xl"
           >
-            turn memories into pages
+            turn images into pdf
           </motion.p>
 
           <motion.p
