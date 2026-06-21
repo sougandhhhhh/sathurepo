@@ -115,8 +115,8 @@ export async function runWithConcurrency<T>(
 
 // ─── Object URL helpers ──────────────────────────────────────────────────────
 
-export function fileToObjectUrl(file: File): string {
-  return URL.createObjectURL(file);
+export function fileToObjectUrl(blob: Blob): string {
+  return URL.createObjectURL(blob);
 }
 
 export function revokeObjectUrl(url: string): void {

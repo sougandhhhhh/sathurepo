@@ -20,6 +20,7 @@ import {
   iosLog,
   revokeObjectUrl,
   runWithConcurrency,
+  yieldToMain,
 } from "@/lib/imageUtils";
 import type { ConversionProgress, ImageItem, PdfSettings, ProcessedPreview } from "@/lib/types";
 
@@ -35,6 +36,9 @@ const DEFAULT_SETTINGS: PdfSettings = {
 };
 
 const MAX_UPLOADS = 400;
+const CHUNKED_MERGE_IMAGE_THRESHOLD = 30;
+const MAX_CHUNK_IMAGES = 10;
+const MAX_CHUNK_BYTES = 40 * 1024 * 1024;
 
 export function SathuutyApp() {
   const [images, setImages] = useState<ImageItem[]>([]);
@@ -256,17 +260,34 @@ export function SathuutyApp() {
     abortRef.current = controller;
 
     try {
-      const blob = await convertImagesToPDF(
-        images,
-        settings,
-        controller.signal,
-        (nextProgress) => {
-          setProgress(nextProgress);
-          if (nextProgress.preview) {
-            setProcessedPreviews((current) => [...current, nextProgress.preview!].slice(-3));
-          }
-        },
-      );
+      const shouldUseChunkedMerge = images.length > CHUNKED_MERGE_IMAGE_THRESHOLD;
+
+      let blob: Blob;
+      if (shouldUseChunkedMerge) {
+        blob = await convertImagesChunkedAndMerged(
+          images,
+          settings,
+          controller.signal,
+          (nextProgress) => {
+            setProgress(nextProgress);
+            if (nextProgress.preview) {
+              setProcessedPreviews((current) => [...current, nextProgress.preview!].slice(-3));
+            }
+          },
+        );
+      } else {
+        blob = await convertImagesToPDF(
+          images,
+          settings,
+          controller.signal,
+          (nextProgress) => {
+            setProgress(nextProgress);
+            if (nextProgress.preview) {
+              setProcessedPreviews((current) => [...current, nextProgress.preview!].slice(-3));
+            }
+          },
+        );
+      }
 
       const url = URL.createObjectURL(blob);
       if (pdfUrlRef.current) URL.revokeObjectURL(pdfUrlRef.current);
@@ -478,8 +499,17 @@ export function SathuutyApp() {
 
 function buildUploadWarning(items: ImageItem[], rejectedCount = 0) {
   const total = items.length;
+  const totalBytes = items.reduce((sum, item) => sum + item.file.size, 0);
   const hasHeic = items.some((item) => item.isHeic);
   const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+
+  if (totalBytes >= 700 * 1024 * 1024 || (total >= 150 && totalBytes >= 400 * 1024 * 1024)) {
+    return `Huge batch detected (${formatBytes(totalBytes)}). The app will automatically split this into smaller PDFs and merge them for safety.`;
+  }
+
+  if (total > CHUNKED_MERGE_IMAGE_THRESHOLD) {
+    return `Large batch detected. Files over ${CHUNKED_MERGE_IMAGE_THRESHOLD} photos will be split into smaller PDFs and merged automatically.`;
+  }
 
   if (total >= MAX_UPLOADS) {
     if (rejectedCount > 0) {
@@ -506,6 +536,100 @@ function buildUploadWarning(items: ImageItem[], rejectedCount = 0) {
   }
 
   return null;
+}
+
+function buildChunks(items: ImageItem[]) {
+  const chunks: Array<{ items: ImageItem[]; start: number; end: number; bytes: number }> = [];
+  let current: ImageItem[] = [];
+  let currentBytes = 0;
+  let startIndex = 0;
+
+  for (let index = 0; index < items.length; index += 1) {
+    const item = items[index];
+    const wouldOverflow =
+      current.length >= MAX_CHUNK_IMAGES || (currentBytes > 0 && currentBytes + item.file.size > MAX_CHUNK_BYTES);
+
+    if (wouldOverflow && current.length > 0) {
+      chunks.push({
+        items: current,
+        start: startIndex,
+        end: index - 1,
+        bytes: currentBytes,
+      });
+      current = [];
+      currentBytes = 0;
+      startIndex = index;
+    }
+
+    current.push(item);
+    currentBytes += item.file.size;
+  }
+
+  if (current.length > 0) {
+    chunks.push({
+      items: current,
+      start: startIndex,
+      end: items.length - 1,
+      bytes: currentBytes,
+    });
+  }
+
+  return chunks;
+}
+
+async function convertImagesChunkedAndMerged(
+  images: ImageItem[],
+  settings: PdfSettings,
+  signal: AbortSignal,
+  onProgress?: (progress: ConversionProgress) => void,
+): Promise<Blob> {
+  const chunks = buildChunks(images);
+  const partBlobs: Blob[] = [];
+
+  for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
+    if (signal.aborted) throw new Error("Cancelled");
+
+    const chunk = chunks[chunkIndex];
+    const chunkBlob = await convertImagesToPDF(
+      chunk.items,
+      settings,
+      signal,
+      (nextProgress) => {
+        onProgress?.({
+          current: chunk.start + nextProgress.current,
+          total: images.length,
+          step: `Chunk ${chunkIndex + 1} of ${chunks.length} - ${nextProgress.step}`,
+          preview: nextProgress.preview,
+        });
+      },
+    );
+
+    partBlobs.push(chunkBlob);
+    onProgress?.({
+      current: chunk.end + 1,
+      total: images.length,
+      step: `Chunk ${chunkIndex + 1} of ${chunks.length} ready for merge (${Math.round(chunk.bytes / (1024 * 1024))} MB)`,
+    });
+
+    await yieldToMain();
+  }
+
+  const formData = new FormData();
+  partBlobs.forEach((blob, index) => {
+    formData.append("parts", blob, `part-${String(index + 1).padStart(3, "0")}.pdf`);
+  });
+  formData.append("filename", settings.filename);
+
+  const response = await fetch("/api/merge-pdfs", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text() || "Failed to merge PDF parts");
+  }
+
+  return response.blob();
 }
 
 function ClearConfirmModal({

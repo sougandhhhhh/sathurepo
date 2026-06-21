@@ -1,6 +1,14 @@
 import jsPDF from "jspdf";
 import type { ConversionProgress, ImageItem, PdfSettings, ProcessedPreview } from "./types";
-import { getFileExt, iosLog, isHeicByMagicBytes, isHeicFile, yieldToMain } from "./imageUtils";
+import {
+  fileToObjectUrl,
+  getFileExt,
+  iosLog,
+  isHeicByMagicBytes,
+  isHeicFile,
+  revokeObjectUrl,
+  yieldToMain,
+} from "./imageUtils";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -39,6 +47,7 @@ export async function convertImagesToPDF(
 ): Promise<Blob> {
   let pdf: jsPDF | null = null;
   const total = items.length;
+  const effectiveQuality = getEffectiveQuality(settings.quality, total);
 
   for (let index = 0; index < items.length; index += 1) {
     if (signal.aborted) {
@@ -60,7 +69,7 @@ export async function convertImagesToPDF(
 
     let processed: ProcessedResult;
     try {
-      processed = await processFile(item, settings.quality / 100);
+      processed = await processFile(item, effectiveQuality / 100);
     } catch (err) {
       // Log and skip broken images rather than aborting the whole conversion
       iosLog("error", "PDF", `Skipping [${item.name}] — processFile failed`, {
@@ -117,7 +126,12 @@ export async function convertImagesToPDF(
     const y = marginMm + (availH - drawH) / 2;
     const format = getPdfImageFormat(item.file);
 
-    pdf.addImage(processed.dataUrl, format, x, y, drawW, drawH, undefined, "FAST");
+    try {
+      // Pass the canvas directly so we do not create another large base64 copy.
+      pdf.addImage(processed.canvas, format, x, y, drawW, drawH, undefined, "FAST");
+    } finally {
+      releaseCanvas(processed.canvas);
+    }
 
     if (settings.watermark || settings.pageNumbers) {
       const pageIndex = pdf.getNumberOfPages();
@@ -146,13 +160,14 @@ export async function convertImagesToPDF(
   }
 
   if (!pdf) throw new Error("No images could be processed");
+  await yieldToMain();
   return pdf.output("blob");
 }
 
 // ─── Processing ───────────────────────────────────────────────────────────────
 
 interface ProcessedResult {
-  dataUrl: string;
+  canvas: HTMLCanvasElement;
   width: number;
   height: number;
   preview: ProcessedPreview;
@@ -166,40 +181,45 @@ async function processFile(
   // (magic byte check catches iOS files reported as image/jpeg)
   const heic = item.isHeic || (await isActuallyHeic(item.file));
 
-  // Step 2: Decode to a renderable data URL
-  const dataUrl = await fileToDataUrlSafe(item.file, heic, item.name);
+  // Step 2: Decode through an object URL instead of a base64 string.
+  const sourceUrl = await fileToRenderableUrl(item.file, heic, item.name);
 
-  // Step 3: Load as HTMLImageElement with retry + timeout
-  const image = await loadImageWithRetry(dataUrl, item.name);
+  try {
+    // Step 3: Load as HTMLImageElement with retry + timeout
+    const image = await loadImageWithRetry(sourceUrl, item.name);
 
-  // Step 4: Compute clamped output dimensions
-  const { width, height } = clampDimensions(
-    image.naturalWidth,
-    image.naturalHeight,
-  );
+    // Step 4: Compute clamped output dimensions
+    const { width, height } = clampDimensions(
+      image.naturalWidth,
+      image.naturalHeight,
+    );
 
-  // Step 5: Draw on canvas, extract JPEG data URL, then destroy canvas
-  const optimized = await drawToCanvas(image, width, height, quality, item.file);
+    // Step 5: Draw on canvas and keep the in-memory image as lean as possible
+    const canvas = await drawToCanvas(image, width, height);
+    const preview = await createPreviewDataUrl(image, item.name, quality);
 
-  iosLog("info", "processFile", "Success", {
-    name: item.name,
-    origW: image.naturalWidth,
-    origH: image.naturalHeight,
-    outW: width,
-    outH: height,
-    heic,
-  });
-
-  return {
-    dataUrl: optimized,
-    width,
-    height,
-    preview: {
-      id: `${item.id}`,
+    iosLog("info", "processFile", "Success", {
       name: item.name,
-      dataUrl: optimized,
-    },
-  };
+      origW: image.naturalWidth,
+      origH: image.naturalHeight,
+      outW: width,
+      outH: height,
+      heic,
+    });
+
+    return {
+      canvas,
+      width,
+      height,
+      preview: {
+        id: `${item.id}`,
+        name: item.name,
+        dataUrl: preview,
+      },
+    };
+  } finally {
+    revokeObjectUrl(sourceUrl);
+  }
 }
 
 /**
@@ -215,10 +235,10 @@ async function isActuallyHeic(file: File): Promise<boolean> {
 }
 
 /**
- * Convert any file (including HEIC) to a browser-renderable data URL.
- * Falls back gracefully if heic2any fails.
+ * Convert any file (including HEIC) to a browser-renderable object URL.
+ * This keeps the main decode path away from large base64 strings.
  */
-async function fileToDataUrlSafe(
+async function fileToRenderableUrl(
   file: File,
   isHeic: boolean,
   name: string,
@@ -237,18 +257,18 @@ async function fileToDataUrlSafe(
         name,
         outSize: blob.size,
       });
-      return blobToDataUrl(blob);
+      return fileToObjectUrl(blob);
     } catch (err) {
       iosLog("error", "fileToDataUrl", "heic2any failed, trying raw blob", {
         name,
         err: String(err),
       });
       // Last resort — try raw blob (works if Safari can natively render this HEIC)
-      return blobToDataUrl(file);
+      return fileToObjectUrl(file);
     }
   }
 
-  return blobToDataUrl(file);
+  return fileToObjectUrl(file);
 }
 
 /**
@@ -342,9 +362,7 @@ async function drawToCanvas(
   img: HTMLImageElement,
   width: number,
   height: number,
-  quality: number,
-  file: File,
-): Promise<string> {
+): Promise<HTMLCanvasElement> {
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;
@@ -366,19 +384,38 @@ async function drawToCanvas(
     ctx.drawImage(img, 0, 0, width, height);
   } catch (err) {
     iosLog("error", "canvas", "drawImage failed", { err: String(err) });
-    // Destroy canvas before throwing
-    canvas.width = 0;
-    canvas.height = 0;
+    releaseCanvas(canvas);
     throw err;
   }
 
-  const mime = file.type === "image/png" ? "image/png" : "image/jpeg";
-  const dataUrl = canvas.toDataURL(mime, mime === "image/jpeg" ? quality : undefined);
+  return canvas;
+}
 
-  // ← Explicit canvas destruction to release GPU memory on iOS
-  canvas.width = 0;
-  canvas.height = 0;
+async function createPreviewDataUrl(
+  img: HTMLImageElement,
+  name: string,
+  quality: number,
+): Promise<string> {
+  const maxSide = 320;
+  const ratio = Math.min(maxSide / img.naturalWidth, maxSide / img.naturalHeight, 1);
+  const width = Math.max(1, Math.round(img.naturalWidth * ratio));
+  const height = Math.max(1, Math.round(img.naturalHeight * ratio));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
 
+  const ctx = canvas.getContext("2d", { alpha: false });
+  if (!ctx) {
+    iosLog("warn", "preview", "Failed to get 2d context for preview", { name });
+    return "";
+  }
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const dataUrl = canvas.toDataURL("image/jpeg", quality >= 0.9 ? 0.55 : 0.5);
+  releaseCanvas(canvas);
   return dataUrl;
 }
 
@@ -411,13 +448,15 @@ function clampDimensions(
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("FileReader failed"));
-    reader.readAsDataURL(blob);
-  });
+function releaseCanvas(canvas: HTMLCanvasElement) {
+  canvas.width = 0;
+  canvas.height = 0;
+}
+
+function getEffectiveQuality(quality: number, total: number): number {
+  if (total >= 180) return Math.min(quality, 0.75 * 100);
+  if (total >= 120) return Math.min(quality, 0.82 * 100);
+  return quality;
 }
 
 function getPageDims(
