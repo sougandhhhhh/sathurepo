@@ -21,6 +21,12 @@ export async function ensureJobPartDir(jobId: string) {
   return dir;
 }
 
+export async function ensureJobImageDir(jobId: string) {
+  const dir = path.join(getJobDir(jobId), "images");
+  await mkdir(dir, { recursive: true });
+  return dir;
+}
+
 export async function writePdfPart(jobId: string, partIndex: number, bytes: Uint8Array) {
   if (!Number.isInteger(partIndex) || partIndex < 1) {
     throw new Error("Invalid part index");
@@ -31,12 +37,32 @@ export async function writePdfPart(jobId: string, partIndex: number, bytes: Uint
   await writeFile(path.join(partDir, name), bytes);
 }
 
+export async function writeJobImage(jobId: string, imageIndex: number, bytes: Uint8Array, ext = "bin") {
+  if (!Number.isInteger(imageIndex) || imageIndex < 1) {
+    throw new Error("Invalid image index");
+  }
+
+  const imageDir = await ensureJobImageDir(jobId);
+  const safeExt = ext.replace(/[^a-z0-9]/gi, "").toLowerCase() || "bin";
+  const name = `image-${String(imageIndex).padStart(4, "0")}.${safeExt}`;
+  await writeFile(path.join(imageDir, name), bytes);
+}
+
 export async function listPdfParts(jobId: string) {
   const partDir = path.join(getJobDir(jobId), "parts");
   const entries = await readdir(partDir, { withFileTypes: true });
   return entries
     .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith(".pdf"))
     .map((entry) => path.join(partDir, entry.name))
+    .sort((a, b) => a.localeCompare(b));
+}
+
+export async function listJobImages(jobId: string) {
+  const imageDir = path.join(getJobDir(jobId), "images");
+  const entries = await readdir(imageDir, { withFileTypes: true });
+  return entries
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.join(imageDir, entry.name))
     .sort((a, b) => a.localeCompare(b));
 }
 

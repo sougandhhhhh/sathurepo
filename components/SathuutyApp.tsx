@@ -258,10 +258,21 @@ export function SathuutyApp() {
     abortRef.current = controller;
 
     try {
-      const shouldUseChunkedMerge = images.length > CHUNKED_MERGE_IMAGE_THRESHOLD;
+      const isMobile = isMobileDevice();
+      const shouldUseMobileBackend = isMobile;
+      const shouldUseChunkedMerge = !shouldUseMobileBackend && images.length > CHUNKED_MERGE_IMAGE_THRESHOLD;
 
       let blob: Blob;
-      if (shouldUseChunkedMerge) {
+      if (shouldUseMobileBackend) {
+        blob = await convertImagesViaBackend(
+          images,
+          settings,
+          controller.signal,
+          (nextProgress) => {
+            setProgress(nextProgress);
+          },
+        );
+      } else if (shouldUseChunkedMerge) {
         blob = await convertImagesChunkedAndMerged(
           images,
           settings,
@@ -578,6 +589,77 @@ function buildChunks(items: ImageItem[]) {
   }
 
   return chunks;
+}
+
+function isMobileDevice() {
+  return typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+}
+
+async function convertImagesViaBackend(
+  images: ImageItem[],
+  settings: PdfSettings,
+  signal: AbortSignal,
+  onProgress?: (progress: ConversionProgress) => void,
+): Promise<Blob> {
+  const jobId = crypto.randomUUID();
+
+  for (let index = 0; index < images.length; index += 1) {
+    if (signal.aborted) throw new Error("Cancelled");
+
+    const item = images[index];
+    onProgress?.({
+      current: index + 1,
+      total: images.length,
+      step: `Uploading image ${index + 1} of ${images.length}...`,
+    });
+
+    await uploadImagePart(jobId, index + 1, item.file, signal);
+    await yieldToMain();
+  }
+
+  onProgress?.({
+    current: images.length,
+    total: images.length,
+    step: "Rendering PDF on the backend...",
+  });
+
+  const response = await fetch(`/api/pdf-jobs/${jobId}/finalize`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      filename: settings.filename,
+      settings,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text() || "Failed to generate PDF");
+  }
+
+  return response.blob();
+}
+
+async function uploadImagePart(
+  jobId: string,
+  imageIndex: number,
+  file: File,
+  signal: AbortSignal,
+) {
+  const response = await fetch(`/api/pdf-jobs/${jobId}/images/${imageIndex}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": file.type || "application/octet-stream",
+      "X-File-Name": file.name,
+    },
+    body: file,
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text() || `Failed to upload image ${imageIndex}`);
+  }
 }
 
 async function convertImagesChunkedAndMerged(
