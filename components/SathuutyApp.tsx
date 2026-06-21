@@ -12,7 +12,15 @@ import { ConvertButton } from "@/components/ConvertButton";
 import { ProgressModal } from "@/components/ProgressModal";
 import { SuccessModal } from "@/components/SuccessModal";
 import { convertImagesToPDF } from "@/lib/convertToPdf";
-import { fileToObjectUrl, formatBytes, isHeicFile, isHeicByMagicBytes, revokeObjectUrl } from "@/lib/imageUtils";
+import {
+  fileToObjectUrl,
+  formatBytes,
+  isHeicFile,
+  isHeicByMagicBytes,
+  iosLog,
+  revokeObjectUrl,
+  runWithConcurrency,
+} from "@/lib/imageUtils";
 import type { ConversionProgress, ImageItem, PdfSettings, ProcessedPreview } from "@/lib/types";
 
 const DEFAULT_SETTINGS: PdfSettings = {
@@ -75,25 +83,45 @@ export function SathuutyApp() {
   const handleAddFiles = async (files: File[]) => {
     if (!files.length) return;
 
-    // Determine HEIC status for every file.
-    // Step 1: fast name/MIME check. Step 2: magic-byte sniff for ambiguous files
-    // (iOS Safari can report HEIC as image/jpeg or with an empty MIME type).
-    const heicFlags = await Promise.all(
-      files.map(async (file) => {
-        if (isHeicFile(file)) return true;
-        // Only sniff files that could plausibly be HEIC (no known-safe image MIME)
-        const safeMimes = ["image/png", "image/gif", "image/webp", "image/bmp", "image/svg+xml"];
-        if (safeMimes.includes(file.type.toLowerCase())) return false;
-        return isHeicByMagicBytes(file);
-      })
-    );
+    // ── Step 1: Sequential magic-byte HEIC detection ─────────────────────
+    // Promise.all on 50 files causes iOS photo library I/O contention.
+    // We run magic-byte reads sequentially instead.
+    const heicFlags: boolean[] = [];
+    const safeMimes = ["image/png", "image/gif", "image/webp", "image/bmp", "image/svg+xml"];
 
+    for (const file of files) {
+      if (isHeicFile(file)) {
+        heicFlags.push(true);
+        iosLog("info", "Upload", "HEIC detected by name/MIME", {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+        });
+      } else if (safeMimes.includes(file.type.toLowerCase())) {
+        heicFlags.push(false);
+        iosLog("info", "Upload", "Safe MIME, skipping magic bytes", {
+          name: file.name,
+          type: file.type,
+        });
+      } else {
+        // Potentially ambiguous (image/jpeg from iOS = might be HEIC)
+        const magic = await isHeicByMagicBytes(file);
+        heicFlags.push(magic);
+        iosLog(magic ? "warn" : "info", "Upload",
+          magic ? "HEIC detected via magic bytes" : "Not HEIC (magic bytes)",
+          { name: file.name, type: file.type, size: file.size },
+        );
+      }
+    }
+
+    // ── Step 2: Build the image list and commit to state ─────────────────
     const mapped = files.map((file, i) => {
       const heic = heicFlags[i];
       return {
         id: crypto.randomUUID(),
         file,
         name: file.name,
+        // HEIC files start with no url; thumbnail is generated below
         url: heic ? "" : fileToObjectUrl(file),
         isHeic: heic,
       };
@@ -108,21 +136,55 @@ export function SathuutyApp() {
     });
     setError(null);
 
+    // ── Step 3: Generate HEIC thumbnails sequentially ─────────────────────
+    // iOS WebKit has a single-threaded HEIC decoder. Running multiple
+    // heic2any() calls in parallel causes silent failures — some return
+    // blank blobs, others throw. Serialise to 1 at a time on mobile.
     const heicItems = mapped.filter((item) => item.isHeic);
-    if (heicItems.length > 0) {
-      import("heic2any").then(({ default: heic2any }) => {
-        heicItems.forEach((item) => {
-          heic2any({ blob: item.file, toType: "image/jpeg", quality: 0.1 })
-            .then((converted) => {
-              const blob = Array.isArray(converted) ? converted[0] : converted;
-              const objectUrl = URL.createObjectURL(blob);
-              setImages((current) =>
-                current.map((img) => (img.id === item.id ? { ...img, url: objectUrl } : img))
-              );
-            })
-            .catch((e) => console.error("Failed to generate HEIC preview:", e));
-        });
-      }).catch(e => console.error("Failed to import heic2any:", e));
+    if (heicItems.length === 0) return;
+
+    iosLog("info", "Upload", `Generating thumbnails for ${heicItems.length} HEIC files sequentially`);
+
+    const isMobile = typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 767px)").matches;
+    const concurrency = isMobile ? 1 : 3;
+
+    try {
+      const { default: heic2any } = await import("heic2any");
+
+      const tasks = heicItems.map((item) => async () => {
+        iosLog("info", "Thumbnail", `Starting: ${item.name}`);
+        try {
+          const converted = await heic2any({
+            blob: item.file,
+            toType: "image/jpeg",
+            // Low quality — thumbnails only, full quality is used at PDF time
+            quality: 0.25,
+          });
+          const blob = Array.isArray(converted) ? converted[0] : converted;
+          const objectUrl = URL.createObjectURL(blob);
+
+          setImages((current) =>
+            current.map((img) =>
+              img.id === item.id ? { ...img, url: objectUrl } : img
+            )
+          );
+
+          iosLog("info", "Thumbnail", `Done: ${item.name}`, {
+            outSize: blob.size,
+          });
+        } catch (err) {
+          iosLog("error", "Thumbnail", `Failed: ${item.name}`, {
+            err: String(err),
+          });
+          // Leave url as "" — ImageCard shows "Loading preview..." fallback
+        }
+      });
+
+      await runWithConcurrency(tasks, concurrency);
+      iosLog("info", "Thumbnail", "All HEIC thumbnails done");
+    } catch (err) {
+      iosLog("error", "Thumbnail", "heic2any import failed", { err: String(err) });
     }
   };
 
