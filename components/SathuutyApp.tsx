@@ -37,8 +37,7 @@ const DEFAULT_SETTINGS: PdfSettings = {
 
 const MAX_UPLOADS = 400;
 const CHUNKED_MERGE_IMAGE_THRESHOLD = 30;
-const MAX_CHUNK_IMAGES = 10;
-const MAX_CHUNK_BYTES = 40 * 1024 * 1024;
+const MAX_CHUNK_BYTES = 12 * 1024 * 1024;
 
 export function SathuutyApp() {
   const [images, setImages] = useState<ImageItem[]>([]);
@@ -539,6 +538,9 @@ function buildUploadWarning(items: ImageItem[], rejectedCount = 0) {
 }
 
 function buildChunks(items: ImageItem[]) {
+  const totalBytes = items.reduce((sum, item) => sum + item.file.size, 0);
+  const averageBytes = totalBytes / Math.max(items.length, 1);
+  const maxChunkImages = getChunkImageLimit(averageBytes);
   const chunks: Array<{ items: ImageItem[]; start: number; end: number; bytes: number }> = [];
   let current: ImageItem[] = [];
   let currentBytes = 0;
@@ -547,7 +549,7 @@ function buildChunks(items: ImageItem[]) {
   for (let index = 0; index < items.length; index += 1) {
     const item = items[index];
     const wouldOverflow =
-      current.length >= MAX_CHUNK_IMAGES || (currentBytes > 0 && currentBytes + item.file.size > MAX_CHUNK_BYTES);
+      current.length >= maxChunkImages || (currentBytes > 0 && currentBytes + item.file.size > MAX_CHUNK_BYTES);
 
     if (wouldOverflow && current.length > 0) {
       chunks.push({
@@ -584,12 +586,18 @@ async function convertImagesChunkedAndMerged(
   onProgress?: (progress: ConversionProgress) => void,
 ): Promise<Blob> {
   const chunks = buildChunks(images);
-  const partBlobs: Blob[] = [];
+  const jobId = crypto.randomUUID();
 
   for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
     if (signal.aborted) throw new Error("Cancelled");
 
     const chunk = chunks[chunkIndex];
+    onProgress?.({
+      current: chunk.start,
+      total: images.length,
+      step: `Preparing chunk ${chunkIndex + 1} of ${chunks.length}...`,
+    });
+
     const chunkBlob = await convertImagesToPDF(
       chunk.items,
       settings,
@@ -604,25 +612,28 @@ async function convertImagesChunkedAndMerged(
       },
     );
 
-    partBlobs.push(chunkBlob);
+    await uploadChunkPart(jobId, chunkIndex + 1, chunkBlob, signal);
     onProgress?.({
       current: chunk.end + 1,
       total: images.length,
-      step: `Chunk ${chunkIndex + 1} of ${chunks.length} ready for merge (${Math.round(chunk.bytes / (1024 * 1024))} MB)`,
+      step: `Chunk ${chunkIndex + 1} of ${chunks.length} uploaded (${Math.round(chunk.bytes / (1024 * 1024))} MB)`,
     });
 
     await yieldToMain();
   }
 
-  const formData = new FormData();
-  partBlobs.forEach((blob, index) => {
-    formData.append("parts", blob, `part-${String(index + 1).padStart(3, "0")}.pdf`);
+  onProgress?.({
+    current: images.length,
+    total: images.length,
+    step: "Merging PDF parts on the backend...",
   });
-  formData.append("filename", settings.filename);
 
-  const response = await fetch("/api/merge-pdfs", {
+  const response = await fetch(`/api/pdf-jobs/${jobId}/finalize`, {
     method: "POST",
-    body: formData,
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ filename: settings.filename }),
   });
 
   if (!response.ok) {
@@ -630,6 +641,32 @@ async function convertImagesChunkedAndMerged(
   }
 
   return response.blob();
+}
+
+async function uploadChunkPart(
+  jobId: string,
+  partIndex: number,
+  blob: Blob,
+  signal: AbortSignal,
+) {
+  const response = await fetch(`/api/pdf-jobs/${jobId}/parts/${partIndex}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/pdf",
+    },
+    body: blob,
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(await response.text() || `Failed to upload chunk ${partIndex}`);
+  }
+}
+
+function getChunkImageLimit(averageBytes: number): number {
+  if (averageBytes >= 3 * 1024 * 1024) return 1;
+  if (averageBytes >= 1.5 * 1024 * 1024) return 2;
+  return 4;
 }
 
 function ClearConfirmModal({
