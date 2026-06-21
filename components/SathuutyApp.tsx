@@ -12,7 +12,7 @@ import { ConvertButton } from "@/components/ConvertButton";
 import { ProgressModal } from "@/components/ProgressModal";
 import { SuccessModal } from "@/components/SuccessModal";
 import { convertImagesToPDF } from "@/lib/convertToPdf";
-import { fileToObjectUrl, formatBytes, isHeicFile, revokeObjectUrl } from "@/lib/imageUtils";
+import { fileToObjectUrl, formatBytes, isHeicFile, isHeicByMagicBytes, revokeObjectUrl } from "@/lib/imageUtils";
 import type { ConversionProgress, ImageItem, PdfSettings, ProcessedPreview } from "@/lib/types";
 
 const DEFAULT_SETTINGS: PdfSettings = {
@@ -72,16 +72,32 @@ export function SathuutyApp() {
     return `${images.length} image${images.length === 1 ? "" : "s"} ready`;
   }, [images.length]);
 
-  const handleAddFiles = (files: File[]) => {
+  const handleAddFiles = async (files: File[]) => {
     if (!files.length) return;
 
-    const mapped = files.map((file) => ({
-      id: crypto.randomUUID(),
-      file,
-      name: file.name,
-      url: isHeicFile(file) ? "" : fileToObjectUrl(file),
-      isHeic: isHeicFile(file),
-    }));
+    // Determine HEIC status for every file.
+    // Step 1: fast name/MIME check. Step 2: magic-byte sniff for ambiguous files
+    // (iOS Safari can report HEIC as image/jpeg or with an empty MIME type).
+    const heicFlags = await Promise.all(
+      files.map(async (file) => {
+        if (isHeicFile(file)) return true;
+        // Only sniff files that could plausibly be HEIC (no known-safe image MIME)
+        const safeMimes = ["image/png", "image/gif", "image/webp", "image/bmp", "image/svg+xml"];
+        if (safeMimes.includes(file.type.toLowerCase())) return false;
+        return isHeicByMagicBytes(file);
+      })
+    );
+
+    const mapped = files.map((file, i) => {
+      const heic = heicFlags[i];
+      return {
+        id: crypto.randomUUID(),
+        file,
+        name: file.name,
+        url: heic ? "" : fileToObjectUrl(file),
+        isHeic: heic,
+      };
+    });
 
     setImages((current) => {
       const remainingSlots = Math.max(MAX_UPLOADS - current.length, 0);
