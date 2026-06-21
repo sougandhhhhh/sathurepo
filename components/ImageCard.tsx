@@ -42,6 +42,7 @@ export function ImageCard({ item, index, onRemove, isLocked, onLockClick }: Imag
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/0 to-black/10 opacity-0 transition group-hover:opacity-100" />
 
+        {/* Remove button — always visible so user can cancel stuck HEIC conversions */}
         <div className="absolute inset-0 flex items-start justify-between p-3 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
           <button
             type="button"
@@ -53,18 +54,21 @@ export function ImageCard({ item, index, onRemove, isLocked, onLockClick }: Imag
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={() => onLockClick(item.id)}
-          className={`absolute left-1/2 top-1/2 inline-flex h-[4.5rem] w-[4.5rem] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur transition hover:scale-105 sm:h-[5rem] sm:w-[5rem] ${isLocked ? 'bg-[#e8637a]/80 text-white' : 'bg-black/40 text-white hover:bg-black/60'}`}
-          aria-label={isLocked ? `Unlock ${item.name}` : `Lock ${item.name}`}
-        >
-          {isLocked ? (
-            <Lock className="h-7 w-7 sm:h-8 sm:w-8 text-white" />
-          ) : (
-            <Unlock className="h-7 w-7 sm:h-8 sm:w-8 text-white/90" />
-          )}
-        </button>
+        {/* Lock button — only once thumbnail has loaded */}
+        {item.url && (
+          <button
+            type="button"
+            onClick={() => onLockClick(item.id)}
+            className={`absolute left-1/2 top-1/2 inline-flex h-[4.5rem] w-[4.5rem] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.5)] backdrop-blur transition hover:scale-105 sm:h-[5rem] sm:w-[5rem] sm:opacity-0 sm:group-hover:opacity-100 ${isLocked ? 'bg-[#e8637a]/80 text-white opacity-100' : 'bg-black/40 text-white hover:bg-black/60 opacity-0'}`}
+            aria-label={isLocked ? `Unlock ${item.name}` : `Lock ${item.name}`}
+          >
+            {isLocked ? (
+              <Lock className="h-7 w-7 sm:h-8 sm:w-8 text-white" />
+            ) : (
+              <Unlock className="h-7 w-7 sm:h-8 sm:w-8 text-white/90" />
+            )}
+          </button>
+        )}
 
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent p-2.5 pt-5 flex items-center justify-between gap-1.5">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">

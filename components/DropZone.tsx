@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { Heart, Plus } from "lucide-react";
 import { useDropzone } from "react-dropzone";
+import { iosLog } from "@/lib/imageUtils";
 
 interface DropZoneProps {
   onFiles: (files: File[]) => void;
@@ -12,12 +13,55 @@ interface DropZoneProps {
 
 export function DropZone({ onFiles, fileCount, warning }: DropZoneProps) {
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
-    accept: {
-      "image/*": [".jpg", ".jpeg", ".png", ".webp", ".bmp", ".gif", ".heic", ".heif"],
+    // CRITICAL iOS FIX: Do NOT use the `accept` object filter here.
+    // react-dropzone validates accept by checking file.type against the MIME
+    // pattern. iOS Safari delivers HEIC files from the photo library with
+    // file.type === "" in batch selections — these get silently rejected.
+    // We use a custom validator that passes everything through and let
+    // our own magic-byte detection in handleAddFiles do the real filtering.
+    validator: (file) => {
+      const name = file.name.toLowerCase();
+      const type = file.type.toLowerCase();
+
+      // Allow files with recognisable image MIME types
+      if (type.startsWith("image/")) return null;
+
+      // Allow files with no MIME type but an image extension (iOS batch HEIC)
+      if (type === "") {
+        const imageExts = [".jpg", ".jpeg", ".png", ".webp", ".bmp",
+                           ".gif", ".heic", ".heif", ".tiff", ".tif"];
+        if (imageExts.some((ext) => name.endsWith(ext))) {
+          iosLog("warn", "DropZone", "Accepted file with empty MIME (iOS batch)", {
+            name: file.name,
+            size: file.size,
+          });
+          return null; // null = accepted
+        }
+      }
+
+      // Reject everything else
+      iosLog("warn", "DropZone", "Rejected file", {
+        name: file.name,
+        type: file.type,
+      });
+      return {
+        code: "not-an-image",
+        message: `${file.name} is not a supported image file`,
+      };
     },
     multiple: true,
     noClick: false,
     onDrop: onFiles,
+    onDropRejected: (rejections) => {
+      rejections.forEach(({ file, errors }) => {
+        iosLog("warn", "DropZone", "File rejected by dropzone", {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          reasons: errors.map((e) => e.message),
+        });
+      });
+    },
   });
 
   return (
