@@ -37,7 +37,6 @@ const DEFAULT_SETTINGS: PdfSettings = {
 
 const MAX_UPLOADS = 400;
 const CHUNKED_MERGE_IMAGE_THRESHOLD = 30;
-const MAX_CHUNK_BYTES = 12 * 1024 * 1024;
 
 export function SathuutyApp() {
   const [images, setImages] = useState<ImageItem[]>([]);
@@ -538,9 +537,11 @@ function buildUploadWarning(items: ImageItem[], rejectedCount = 0) {
 }
 
 function buildChunks(items: ImageItem[]) {
+  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
   const totalBytes = items.reduce((sum, item) => sum + item.file.size, 0);
   const averageBytes = totalBytes / Math.max(items.length, 1);
-  const maxChunkImages = getChunkImageLimit(averageBytes);
+  const maxChunkImages = isMobile ? 1 : getChunkImageLimit(averageBytes);
+  const maxChunkBytes = isMobile ? 3 * 1024 * 1024 : 12 * 1024 * 1024;
   const chunks: Array<{ items: ImageItem[]; start: number; end: number; bytes: number }> = [];
   let current: ImageItem[] = [];
   let currentBytes = 0;
@@ -549,7 +550,7 @@ function buildChunks(items: ImageItem[]) {
   for (let index = 0; index < items.length; index += 1) {
     const item = items[index];
     const wouldOverflow =
-      current.length >= maxChunkImages || (currentBytes > 0 && currentBytes + item.file.size > MAX_CHUNK_BYTES);
+      current.length >= maxChunkImages || (currentBytes > 0 && currentBytes + item.file.size > maxChunkBytes);
 
     if (wouldOverflow && current.length > 0) {
       chunks.push({
@@ -585,6 +586,10 @@ async function convertImagesChunkedAndMerged(
   signal: AbortSignal,
   onProgress?: (progress: ConversionProgress) => void,
 ): Promise<Blob> {
+  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches;
+  const effectiveSettings = isMobile
+    ? { ...settings, quality: Math.min(settings.quality, 72) }
+    : settings;
   const chunks = buildChunks(images);
   const jobId = crypto.randomUUID();
 
@@ -600,7 +605,7 @@ async function convertImagesChunkedAndMerged(
 
     const chunkBlob = await convertImagesToPDF(
       chunk.items,
-      settings,
+      effectiveSettings,
       signal,
       (nextProgress) => {
         onProgress?.({
