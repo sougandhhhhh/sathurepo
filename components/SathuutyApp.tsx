@@ -812,7 +812,9 @@ async function mergePdfBlobsLocally(parts: Blob[]) {
   }
 
   const mergedBytes = await mergedPdf.save();
-  return new Blob([mergedBytes], { type: "application/pdf" });
+  const mergedBuffer = new ArrayBuffer(mergedBytes.byteLength);
+  new Uint8Array(mergedBuffer).set(mergedBytes);
+  return new Blob([mergedBuffer], { type: "application/pdf" });
 }
 
 function getChunkImageLimit(averageBytes: number): number {
