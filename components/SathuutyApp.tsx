@@ -708,6 +708,7 @@ async function convertImagesChunkedAndMerged(
     : settings;
   const chunks = buildChunks(images);
   const jobId = crypto.randomUUID();
+  const chunkBlobs: Blob[] = [];
 
   for (let chunkIndex = 0; chunkIndex < chunks.length; chunkIndex += 1) {
     if (signal.aborted) throw new Error("Cancelled");
@@ -733,6 +734,7 @@ async function convertImagesChunkedAndMerged(
       },
     );
 
+    chunkBlobs.push(chunkBlob);
     await uploadChunkPart(jobId, chunkIndex + 1, chunkBlob, signal);
     onProgress?.({
       current: chunk.end + 1,
@@ -758,7 +760,17 @@ async function convertImagesChunkedAndMerged(
   });
 
   if (!response.ok) {
-    throw new Error(await response.text() || "Failed to merge PDF parts");
+    const backendError = await response.text();
+    iosLog("warn", "PDF", "Backend merge failed, retrying locally", {
+      err: backendError || "Failed to merge PDF parts",
+      chunks: chunkBlobs.length,
+    });
+    onProgress?.({
+      current: images.length,
+      total: images.length,
+      step: "Backend merge failed. Merging locally instead...",
+    });
+    return mergePdfBlobsLocally(chunkBlobs);
   }
 
   return response.blob();
@@ -782,6 +794,25 @@ async function uploadChunkPart(
   if (!response.ok) {
     throw new Error(await response.text() || `Failed to upload chunk ${partIndex}`);
   }
+}
+
+async function mergePdfBlobsLocally(parts: Blob[]) {
+  if (!parts.length) {
+    throw new Error("No PDF parts were provided");
+  }
+
+  const { PDFDocument } = await import("pdf-lib");
+  const mergedPdf = await PDFDocument.create();
+
+  for (const part of parts) {
+    const bytes = await part.arrayBuffer();
+    const sourcePdf = await PDFDocument.load(bytes);
+    const copiedPages = await mergedPdf.copyPages(sourcePdf, sourcePdf.getPageIndices());
+    copiedPages.forEach((page) => mergedPdf.addPage(page));
+  }
+
+  const mergedBytes = await mergedPdf.save();
+  return new Blob([mergedBytes], { type: "application/pdf" });
 }
 
 function getChunkImageLimit(averageBytes: number): number {
