@@ -256,6 +256,7 @@ export function SathuutyApp() {
     const startedAt = performance.now();
     const controller = new AbortController();
     abortRef.current = controller;
+    const totalBytes = images.reduce((sum, item) => sum + item.file.size, 0);
 
     try {
       const isMobile = isMobileDevice();
@@ -264,14 +265,47 @@ export function SathuutyApp() {
 
       let blob: Blob;
       if (shouldUseMobileBackend) {
-        blob = await convertImagesViaBackend(
-          images,
-          settings,
-          controller.signal,
-          (nextProgress) => {
-            setProgress(nextProgress);
-          },
-        );
+        try {
+          blob = await convertImagesViaBackend(
+            images,
+            settings,
+            controller.signal,
+            (nextProgress) => {
+              setProgress(nextProgress);
+            },
+          );
+        } catch (backendErr) {
+          if (controller.signal.aborted) {
+            throw backendErr;
+          }
+
+          const safeToFallback = images.length <= CHUNKED_MERGE_IMAGE_THRESHOLD || totalBytes <= 25 * 1024 * 1024;
+          if (!safeToFallback) {
+            throw backendErr;
+          }
+
+          iosLog("warn", "PDF", "Backend conversion failed, retrying locally", {
+            err: String(backendErr),
+            totalImages: images.length,
+            totalBytes,
+          });
+          setProgress({
+            current: 0,
+            total: images.length,
+            step: "Backend retry failed. Switching to local conversion...",
+          });
+          blob = await convertImagesToPDF(
+            images,
+            settings,
+            controller.signal,
+            (nextProgress) => {
+              setProgress(nextProgress);
+              if (nextProgress.preview) {
+                setProcessedPreviews((current) => [...current, nextProgress.preview!].slice(-3));
+              }
+            },
+          );
+        }
       } else if (shouldUseChunkedMerge) {
         blob = await convertImagesChunkedAndMerged(
           images,
